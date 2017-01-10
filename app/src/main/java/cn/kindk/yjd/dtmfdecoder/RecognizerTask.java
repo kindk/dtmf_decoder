@@ -60,10 +60,25 @@ public class RecognizerTask extends AsyncTask<Void, Object, Void> {
                 char key = statelessRecognizer.getRecognizedKey();
 
                 if (key != ' ') {
-                    if (key != lastKey) {
-                        Log.w(TAG, " " + resIdx + " " + key);
+                  //  Log.w(TAG, "" + key);
+
+
+                   // if (key != lastKey) {
+                    if (true) {
+                        Log.w(TAG, " " + resIdx + " " + key + " " + dataBlock.seq);
                         res[resIdx] = (byte)key;
                         resIdx ++;
+
+//                        if (lastKey == '0') {
+//
+//                        }
+//
+//
+//                        if (key == '0' && (resIdx >= 2)) {
+//                            if
+//                        }
+//
+
 
                         if ((key == '*') && (resIdx >= 2)) {
                             if (//res[resIdx-3] == '*' &&
@@ -107,18 +122,77 @@ public class RecognizerTask extends AsyncTask<Void, Object, Void> {
                             ssid = new byte[ssidEnd-ssidStart+2];
                             pwd = new byte[pwdEnd-pwdStart+2];
 
-                            int j = 0;
+
+                            int k = 0;
                             for (int i=ssidStart;i<=ssidEnd;i++) {
-                                ssid[j] = res[i];
+                                if (res[i] >= '0' && res[i] <= '9') {
+                                    res[i] -= '0';
+                                }
+
+                                if (res[i] >= 'A' && res[i] <= 'D') {
+                                    res[i] = (byte)(res[i] - 'A' + 12);
+                                }
+
+                                if (res[i] == '*') {
+                                    res[i] = 10;
+                                }
+
+                                if (res[i] == '#') {
+                                    res[i] = 11;
+                                }
+
+                                if (k%2==0) {
+                                    int a = ssidStart + k;
+                                    if (res[a] == 8) {
+                                        Log.w(TAG, "888: " + a + " " + res[a] + " " + res[a+1] );
+                                        res[a] = res[a + 1];
+                                    }
+                                }
+                                k ++;
+                            }
+
+
+                            k=0;
+                            for (int i=pwdStart;i<=pwdEnd;i++) {
+                                if (res[i] >= '0' && res[i] <= '9') {
+                                    res[i] -= '0';
+                                }
+
+                                if (res[i] >= 'A' && res[i] <= 'D') {
+                                    res[i] = (byte)(res[i] - 'A' + 12);
+                                }
+
+                                if (res[i] == '*') {
+                                    res[i] = 10;
+                                }
+
+                                if (res[i] == '#') {
+                                    res[i] = 11;
+                                }
+
+                                if (k%2==0) {
+                                    int a = pwdStart + k;
+                                    if (res[a] == 8) {
+                                        Log.w(TAG, "888: " + a + " " + res[a] + " " + res[a+1] );
+                                        res[a] = res[a + 1];
+                                    }
+                                }
+                                k ++;
+                            }
+
+
+                            int j = 0;
+                            for (int i=ssidStart;i<=ssidEnd;i+=2) {
+                                ssid[j] = (byte)(res[i] * 16 + res[i+1]);
+                                Log.w(TAG, "SSID: " + (char)ssid[j]);
                                 j++;
-                                Log.w(TAG, "SSID: " + res[i]);
                             }
 
                             j = 0;
-                            for (int i=pwdStart;i<=pwdEnd;i++) {
-                                pwd[j] = res[i];
+                            for (int i=pwdStart;i<=pwdEnd;i+=2) {
+                                pwd[j] = (byte)(res[i] * 16 + res[i+1]);
+                                Log.w(TAG, "PWD: " + (char)pwd[j]);
                                 j++;
-                                Log.w(TAG, "PWD: " + res[i]);
                             }
 
                             String strSSID = new String(ssid);
@@ -136,6 +210,7 @@ public class RecognizerTask extends AsyncTask<Void, Object, Void> {
             } catch (InterruptedException e){
                 Log.w("WWWWWWWWWW", "recognizer error");
             }
+
         }
         return null;
     }

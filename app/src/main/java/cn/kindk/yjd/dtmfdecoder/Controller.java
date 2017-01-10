@@ -6,7 +6,10 @@ import android.media.MediaRecorder;
 import android.util.Log;
 
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Exchanger;
 import java.util.concurrent.LinkedBlockingQueue;
+
+import static android.os.SystemClock.sleep;
 
 /**
  * Created by yjd on 1/3/17.
@@ -39,15 +42,32 @@ public class Controller {
 
             blockingQueue = new LinkedBlockingQueue<DataBlock>();
             mainActivity.start();
-//            recordTask = new RecordTask(this, blockingQueue);
             recognizerTask = new RecognizerTask(this, blockingQueue);
-
-//            recordTask.execute();
-//            Log.w(TAG, "recorderTask execute");
-
             recognizerTask.execute();
-            Log.w(TAG, "recognizerTask execute");
 
+//
+//            new Thread(new Runnable() {
+//                @Override
+//                public void run() {
+//
+//                    while (isStarted()) {
+//                        try {
+//                            DataBlock dataBlock = blockingQueue.take();
+//                            Spectrum spectrum = dataBlock.FFT();
+//                            spectrum.normalize();
+//                            StatelessRecognizer statelessRecognizer = new StatelessRecognizer(spectrum);
+//                            char key = statelessRecognizer.getRecognizedKey();
+//
+//                            if (key != ' ') {
+//                                Log.w(TAG, "" + key);
+//                                //sleep(130);
+//                            }
+//                        } catch (Exception e) {
+//
+//                        }
+//                    }
+//                }
+//            }).start();
 
             new Thread(new Runnable() {
                 @Override
@@ -59,6 +79,8 @@ public class Controller {
                     AudioRecord audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC,
                             frequency, channelConfiguration, audioEncoding, bufferSize);
 
+                    int seq = 0;
+
                     try {
                         short[] buffer = new short[blockSize];
                         audioRecord.startRecording();
@@ -66,7 +88,10 @@ public class Controller {
                         while (isStarted()) {
                             int bufferReadSize = audioRecord.read(buffer, 0, blockSize);
                             DataBlock dataBlock = new DataBlock(buffer, blockSize, bufferReadSize);
+                            dataBlock.seq = seq;
                             blockingQueue.put(dataBlock);
+                            seq ++;
+                            sleep(100);
                         }
                     } catch (Throwable t) {
                         Log.e("AudioRecord", "Recording Failed");

@@ -30,6 +30,11 @@ public class StatelessRecognizer {
         tones.add(new Tone(60, 77, '*'));
         tones.add(new Tone(60, 86, '0'));
         tones.add(new Tone(60, 95, '#'));
+        //Add by yjd on 01-05-2017.
+        tones.add(new Tone(45, 104, 'A'));
+        tones.add(new Tone(49, 104, 'B'));
+        tones.add(new Tone(55, 104, 'C'));
+        tones.add(new Tone(60, 104, 'D'));
     }
 
     public char getRecognizedKey() {

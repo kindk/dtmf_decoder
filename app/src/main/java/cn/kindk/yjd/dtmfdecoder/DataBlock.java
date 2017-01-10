@@ -16,6 +16,8 @@ public class DataBlock {
         }
     }
 
+    public int seq;
+
     public void setBlock(double[] block)
     {
         this.block = block;
