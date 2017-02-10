@@ -91,7 +91,7 @@ public class Controller {
                             dataBlock.seq = seq;
                             blockingQueue.put(dataBlock);
                             seq ++;
-                            sleep(100);
+                            sleep(20);
                         }
                     } catch (Throwable t) {
                         Log.e("AudioRecord", "Recording Failed");
