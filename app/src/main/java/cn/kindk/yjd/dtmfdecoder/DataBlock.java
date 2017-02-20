@@ -1,5 +1,9 @@
 package cn.kindk.yjd.dtmfdecoder;
 
+import android.util.Log;
+
+import java.util.Arrays;
+
 import math.FFT;
 
 /**
@@ -30,5 +34,11 @@ public class DataBlock {
 
     public Spectrum FFT() {
         return new Spectrum(FFT.magnitudeSpectrum(block));
+    }
+
+    public void dump() {
+        for (int i = 0; i < block.length; i++) {
+            Log.i("DataBlock", Arrays.toString(block));
+        }
     }
 }

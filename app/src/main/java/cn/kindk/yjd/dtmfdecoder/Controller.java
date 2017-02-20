@@ -6,7 +6,6 @@ import android.media.MediaRecorder;
 import android.util.Log;
 
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Exchanger;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import static android.os.SystemClock.sleep;
@@ -16,16 +15,17 @@ import static android.os.SystemClock.sleep;
  */
 
 public class Controller {
-    String TAG = "Controller";
+    private static final String TAG = "Controller";
+    private MainActivity mainActivity;
+
     private boolean started = false;
 
-    int frequency = 16000;
+    int frequency = 16000;  //Can't change
     int channelConfiguration = AudioFormat.CHANNEL_IN_MONO;
     int audioEncoding = AudioFormat.ENCODING_PCM_16BIT;
     int blockSize = 1024;
 
 
-    private MainActivity mainActivity;
     private RecordTask recordTask;
     private RecognizerTask recognizerTask;
 
@@ -42,39 +42,15 @@ public class Controller {
 
             blockingQueue = new LinkedBlockingQueue<DataBlock>();
             mainActivity.start();
-            recognizerTask = new RecognizerTask(this, blockingQueue);
-            recognizerTask.execute();
-
-//
-//            new Thread(new Runnable() {
-//                @Override
-//                public void run() {
-//
-//                    while (isStarted()) {
-//                        try {
-//                            DataBlock dataBlock = blockingQueue.take();
-//                            Spectrum spectrum = dataBlock.FFT();
-//                            spectrum.normalize();
-//                            StatelessRecognizer statelessRecognizer = new StatelessRecognizer(spectrum);
-//                            char key = statelessRecognizer.getRecognizedKey();
-//
-//                            if (key != ' ') {
-//                                Log.w(TAG, "" + key);
-//                                //sleep(130);
-//                            }
-//                        } catch (Exception e) {
-//
-//                        }
-//                    }
-//                }
-//            }).start();
+           // recognizerTask = new RecognizerTask(this, blockingQueue);
+            //recognizerTask.execute();
 
             new Thread(new Runnable() {
                 @Override
                 public void run() {
 
                     int bufferSize = AudioRecord.getMinBufferSize(frequency, channelConfiguration, audioEncoding);
-                    Log.w("RecordTask", "bufferSize is " + bufferSize);
+                    Log.w("RecordTask", "11bufferSize is " + bufferSize);
 
                     AudioRecord audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC,
                             frequency, channelConfiguration, audioEncoding, bufferSize);
@@ -86,19 +62,27 @@ public class Controller {
                         audioRecord.startRecording();
 
                         while (isStarted()) {
+                            Log.i(TAG, "read 0");
                             int bufferReadSize = audioRecord.read(buffer, 0, blockSize);
+                            Log.i(TAG, "read 1");
                             DataBlock dataBlock = new DataBlock(buffer, blockSize, bufferReadSize);
-                            dataBlock.seq = seq;
-                            blockingQueue.put(dataBlock);
-                            seq ++;
-                            sleep(20);
+                            Spectrum spectrum = dataBlock.FFT();
+                            spectrum.normalize();
+                            StatelessRecognizer statelessRecognizer = new StatelessRecognizer(spectrum);
+                            char key = statelessRecognizer.getRecognizedKey();
+                            Log.i(TAG, "read 2");
+                            if (key != ' ') {
+                                Log.i(TAG, "=====1== " + key);
+                               // key = ' ';
+                                //dataBlock.dump();
+                            }
+                            sleep(5);
                         }
                     } catch (Throwable t) {
                         Log.e("AudioRecord", "Recording Failed");
                     }
                 }
             }).start();
-
         } else {
             Log.w(TAG, "stop");
             mainActivity.stop();

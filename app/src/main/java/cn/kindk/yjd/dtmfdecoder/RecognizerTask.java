@@ -23,7 +23,7 @@ public class RecognizerTask extends AsyncTask<Void, Object, Void> {
     private Timer timer;
 
     private final int dtmfCodeMaxLength = 500; //TODO
-    private final int sendCodeMaxLength = 200;
+    private final int recvCodeMaxLength = 200;
     private final int ssidCodeMaxLength = 100;
     private final int pwdCodeMaxLength = 100;
     boolean isStartReceive = false;
@@ -32,6 +32,7 @@ public class RecognizerTask extends AsyncTask<Void, Object, Void> {
     private final int zeroNumMin = 5;
 
 
+    final private byte prefixCode = 0;
     final private int prefixLength = 5;
     final private byte divideCode = 15;
 
@@ -40,16 +41,11 @@ public class RecognizerTask extends AsyncTask<Void, Object, Void> {
     char[] pwdCode;
 
     byte[] dtmfCode;
-    byte[] sendCode;
+    byte[] recvCode;
     int dtmfIndex;
-    int sendIndex = 0;
+    int recvIndex = 0;
     int ssidIndex;
     int pwdIndex;
-
-    int prefixIndex = 0;
-    int divideIndex = 0;
-    int suffixIndex = 0;
-
 
     int ssidStartIndex = 0;
     int ssidEndIndex = 0;
@@ -78,7 +74,7 @@ public class RecognizerTask extends AsyncTask<Void, Object, Void> {
         this.recognizer = new Recognizer();
 
         dtmfCode = new byte[dtmfCodeMaxLength];
-        sendCode = new byte[sendCodeMaxLength];
+        recvCode = new byte[recvCodeMaxLength];
         ssidCode = new char[ssidCodeMaxLength];
         pwdCode = new char[pwdCodeMaxLength];
 
@@ -89,7 +85,7 @@ public class RecognizerTask extends AsyncTask<Void, Object, Void> {
 
         resIdx = 0;
         dtmfIndex = 0;
-        sendIndex = 0;
+        recvIndex = 0;
 
         Log.w("RecognizerTask", "new recognizer");
     }
@@ -115,60 +111,8 @@ public class RecognizerTask extends AsyncTask<Void, Object, Void> {
             }
         }
 
-        Log.i(TAG, "dtmfCode2Digital: " + length);
+        Log.i(TAG, "(dtmfCode2Digital) Digital Code Length:" + length);
         Log.i(TAG, Arrays.toString(code));
-    }
-
-    private void getSsidAndPwd(byte[] code, int length, byte[] ssid, byte[] pwd) {
-        int zeroNum = 0;
-        int ssidStart = 0, ssidEnd = 0;
-        int pwdStart = 0, pwdEnd = 0;
-
-        for (int i = 0; i < length; i++) {
-            if (code[i] == 0) {
-                zeroNum++;
-            } else {
-                if (zeroNum >= zeroNumMin) {
-                    if (ssidStart == 0) {
-                        ssidStart = i;
-                    } else if (pwdStart == 0) {
-                        ssidEnd = i - zeroNum - 1;
-                        pwdStart = i;
-                    } else if (pwdEnd == 0) {
-                        pwdEnd = i - zeroNum - 1;
-                    }
-                }
-                zeroNum = 0;
-            }
-        }
-
-        int j = 0;
-        for (int i = ssidStart; i < ssidEnd; i++) {
-            ssid[j] = code[i];
-            j++;
-        }
-
-        for (int i = pwdStart; i < pwdEnd; i++) {
-            pwd[j] = code[i];
-            j++;
-        }
-    }
-
-    private void getSSIDCode(byte[] code, int length, byte[] ssid) {
-
-        for (int i = 0; i < length; i++) {
-
-        }
-    }
-
-    private void findContinuousCode(byte code, int a) {};
-
-
-    private void removeDuplicateCode(byte[] code, int length) {
-        byte last;
-        for (int i = 0; i < length; i++) {
-
-        }
     }
 
     @Override
@@ -179,79 +123,104 @@ public class RecognizerTask extends AsyncTask<Void, Object, Void> {
         timer = new Timer();
         timerTask = new TimerTask() {
             @Override
-            public void run() {
-                if (isStartReceive && !isReceiving) {
+            public void run() { //run every second
+
+                if (!isStartReceive && isReceiving) { //Start receive Sth.
+                    isStartReceive = true;
+                    Log.i(TAG, "Start receive sth.");
+                } else if (isStartReceive && !isReceiving) {
+                    //Receive finished
+                    //Data:   dtmfCode[]
+                    //Length: dtmfIndex
                     isStartReceive = false;
 
                     dtmfCode2Digital(dtmfCode, dtmfIndex);
                     //Now, dtmfCode include many duplicate code than original code
                     // as recording rate is not same as tone playing rate
 
+                    //哨兵,Only for finding the pwdEndIndex, not equal to 0
+                    dtmfCode[dtmfIndex++] = 1;
 
 
+                    //Start parse duplicate dtmfCode to recvCode
+                    recvCode[0] = dtmfCode[0]; //TODO clear recvCode
+                    recvIndex = 1;
 
+                    ssidStartIndex = 0;
+                    ssidEndIndex = 0;
+                    pwdStartIndex = 0;
+                    pwdEndIndex = 0;
 
-                    sendIndex = 1;
-                    int lastNum = 1;
-                    byte lastCode = dtmfCode[0];
-                    sendCode[0] = dtmfCode[0];
-                    byte code;
+                    byte prevCode;
+                    byte currCode;
+                    prevCode = dtmfCode[0];
+                    int repeatedCnt = 1;
+                    for (int i = 1; i < dtmfIndex; i++) {
+                        currCode = dtmfCode[i];
 
-                    prefixIndex = 0;
-                    divideIndex = 0;
-                    suffixIndex = 0;
-
-                    //哨兵
-                    dtmfCode[dtmfIndex] = 1; /////Only to find the pwdEndIndex, not equal to 0
-                    for (int i = 1; i < (dtmfIndex+1); i++) {
-                        code = dtmfCode[i];
-
-                        if (code == lastCode) {
-                            lastNum ++;
+                        if (currCode == prevCode) {
+                            repeatedCnt ++;
                         } else {
-                            if (lastCode == 0 && lastNum >= prefixLength) {
+                            if (prevCode == prefixCode && repeatedCnt >= prefixLength) {
+                                //Now meet ssid start or pwd start
+                                //At DTMF_Encoder, there are 5 prefixCode
                                 for (int j = 0; j < 4; j++) {
-                                    sendCode[sendIndex++] = 0;
+                                    recvCode[recvIndex++] = prefixCode;
                                 }
 
                                 if (ssidStartIndex == 0) {
-                                    ssidStartIndex = sendIndex;
+                                    ssidStartIndex = recvIndex;
                                 } else if (pwdStartIndex == 0) {
-                                    ssidEndIndex = sendIndex - 6;
-                                    pwdStartIndex = sendIndex;
+                                    ssidEndIndex = recvIndex - 6;
+                                    pwdStartIndex = recvIndex;
                                 } else if (pwdEndIndex == 0) {
 //                                    Log.i(TAG, )
-                                    pwdEndIndex = sendIndex - 6;
+                                    pwdEndIndex = recvIndex - 6;
                                 } else {
                                     Log.i(TAG, "Wrong Index");
                                 }
+                            } else if (repeatedCnt == 1) {
+                                //If we get a code which only occurs once, suppose it
+                                //is a wrong code and discards it.
+                                //Because sampling rate is much larger than tone playing rate,
+                                //every code we received should duplicate 3 or 4 times.
+                                //Of course, this related to tone playPeriod, playInternal,
+                                //and record sleep time.
+                                Log.e(TAG, "=====Index: " + recvIndex + " " + i + " code: " + prevCode);
+
+                                recvCode[recvIndex-1] = currCode;
+                                prevCode = currCode;
+                                repeatedCnt = 1;
+
+                                continue;
                             }
 
-                            lastCode = code;
-                            lastNum = 1;
 
-                            sendCode[sendIndex++] = code;
+                            prevCode = currCode;
+                            repeatedCnt = 1;
+
+                            recvCode[recvIndex++] = currCode;
                         }
                     }
 
-                    Log.i(TAG, "sendCode Index: " + ssidStartIndex + " " + ssidEndIndex + " " + pwdStartIndex + " " + pwdEndIndex);
-                    Log.i(TAG, Arrays.toString(sendCode));
+                    Log.i(TAG, "recvCode Index: " + ssidStartIndex + " " + ssidEndIndex + " " + pwdStartIndex + " " + pwdEndIndex);
+                    Log.i(TAG, Arrays.toString(recvCode));
 
 
-                    // sendCode -------> ssidCode
+                    // recvCode -------> ssidCode
 
                     ssidIndex = 0;
                     byte h = 0,l = 0;
                     int k = 0;
                     for (int i = ssidStartIndex; i <= ssidEndIndex; i++) {
-                        if (sendCode[i] == 15) {
+                        if (recvCode[i] == divideCode) {
                             continue;
                         }
 
                         if (k % 2 == 0) {
-                            h = sendCode[i];
+                            h = recvCode[i];
                         } else {
-                            l = sendCode[i];
+                            l = recvCode[i];
                             ssidCode[ssidIndex++] = (char)(h * 15 + l);
                         }
                         k++;
@@ -259,23 +228,20 @@ public class RecognizerTask extends AsyncTask<Void, Object, Void> {
                     
                     Log.i(TAG, "ssidCode length: " + ssidIndex);
                     Log.i(TAG, new String(ssidCode));
-                    //Log.i(TAG, Arrays.toString(ssidCode));
-
-
 
                     pwdIndex = 0;
                     h = 0;
                     l = 0;
                     k = 0;
                     for (int i = pwdStartIndex; i <= pwdEndIndex; i++) {
-                        if (sendCode[i] == 15) {
+                        if (recvCode[i] == 15) {
                             continue;
                         }
 
                         if (k % 2 == 0) {
-                            h = sendCode[i];
+                            h = recvCode[i];
                         } else {
-                            l = sendCode[i];
+                            l = recvCode[i];
                             pwdCode[pwdIndex++] = (char)(h * 15 + l);
                         }
                         k++;
@@ -283,21 +249,23 @@ public class RecognizerTask extends AsyncTask<Void, Object, Void> {
 
                     Log.i(TAG, "pwdCode length: " + pwdIndex);
                     Log.i(TAG, new String(pwdCode));
-            //        Log.i(TAG, Arrays.toString(pwdCode));
+
                     String strSSID = new String(ssidCode);
                     String strPWD = new String(pwdCode);
                     publishProgress(strSSID, strPWD);
 
+                    int i;
+                    for (i = 0; i < ssidIndex; i++) {
+                        ssidCode[i] = 0;
+                    }
+                    for (i = 0; i < pwdIndex; i++) {
+                        pwdCode[i] = 0;
+                    }
+
                     dtmfIndex = 0;
-                } else if (!isStartReceive && isReceiving) {
-                    isStartReceive = true;
-                    Log.i(TAG, "Start receive sth.");
                 }
 
                 isReceiving = false;
-
-                //timer.schedule(timerTask, 1000);
-                //Log.i(TAG, "timer 1s;");
             }
         };
 
@@ -317,157 +285,7 @@ public class RecognizerTask extends AsyncTask<Void, Object, Void> {
                     if (dtmfIndex >= dtmfCodeMaxLength) {
                         dtmfIndex = 0;
                     }
-                    //Log.i(TAG, "" + key);
                 }
-
-//                if (key != ' ') {
-//                  //  Log.w(TAG, "" + key);
-//
-//
-//                   // if (key != lastKey) {
-//                    if (true) {
-//                        Log.w(TAG, " " + resIdx + " " + key + " " + dataBlock.seq);
-//                        res[resIdx] = (byte)key;
-//                        resIdx ++;
-//
-////                        if (lastKey == '0') {
-////
-////                        }
-////
-////
-////                        if (key == '0' && (resIdx >= 2)) {
-////                            if
-////                        }
-////
-//
-//
-//                        if ((key == '*') && (resIdx >= 2)) {
-//                            if (//res[resIdx-3] == '*' &&
-//                                    res[resIdx-2] == '3' &&
-//                                    res[resIdx-1] == '*' ) {
-//
-//                                ssidStart = resIdx;
-//                                findSSID = true;
-//                            }
-//                        }
-//
-//                        if ((key == '*') && (resIdx >= 4)) {
-//                            if (res[resIdx-3] == '*' &&
-//                                    res[resIdx-2] == '#' &&
-//                                    res[resIdx-1] == '*' ) {
-//
-//                                ssidEnd = resIdx-4;
-//                                pwdStart = resIdx;
-//                                findSSID = true;
-//                            }
-//                        }
-//
-//                        if (key == '#' && (resIdx > 15)) {
-//                            if (res[resIdx-3] == '#' &&
-//                                res[resIdx-2] == '8' &&
-//                                res[resIdx-1] == '#' ) {
-//
-//                                pwdEnd = resIdx-4;
-//                                findPwd = true;
-//                            }
-//                        }
-//
-//                        if (findSSID && findPwd) {
-//                            findSSID = false;
-//                            findPwd = false;
-//                            resIdx = 0;
-//
-//                            Log.w(TAG, "find SSID:" + ssidStart + " " + ssidEnd);
-//                            Log.w(TAG, "find PWD:" + pwdStart + " " + pwdEnd);
-//
-//                            ssid = new byte[ssidEnd-ssidStart+2];
-//                            pwd = new byte[pwdEnd-pwdStart+2];
-//
-//
-//                            int k = 0;
-//                            for (int i=ssidStart;i<=ssidEnd;i++) {
-//                                if (res[i] >= '0' && res[i] <= '9') {
-//                                    res[i] -= '0';
-//                                }
-//
-//                                if (res[i] >= 'A' && res[i] <= 'D') {
-//                                    res[i] = (byte)(res[i] - 'A' + 12);
-//                                }
-//
-//                                if (res[i] == '*') {
-//                                    res[i] = 10;
-//                                }
-//
-//                                if (res[i] == '#') {
-//                                    res[i] = 11;
-//                                }
-//
-//                                if (k%2==0) {
-//                                    int a = ssidStart + k;
-//                                    if (res[a] == 8) {
-//                                        Log.w(TAG, "888: " + a + " " + res[a] + " " + res[a+1] );
-//                                        res[a] = res[a + 1];
-//                                    }
-//                                }
-//                                k ++;
-//                            }
-//
-//
-//                            k=0;
-//                            for (int i=pwdStart;i<=pwdEnd;i++) {
-//                                if (res[i] >= '0' && res[i] <= '9') {
-//                                    res[i] -= '0';
-//                                }
-//
-//                                if (res[i] >= 'A' && res[i] <= 'D') {
-//                                    res[i] = (byte)(res[i] - 'A' + 12);
-//                                }
-//
-//                                if (res[i] == '*') {
-//                                    res[i] = 10;
-//                                }
-//
-//                                if (res[i] == '#') {
-//                                    res[i] = 11;
-//                                }
-//
-//                                if (k%2==0) {
-//                                    int a = pwdStart + k;
-//                                    if (res[a] == 8) {
-//                                        Log.w(TAG, "888: " + a + " " + res[a] + " " + res[a+1] );
-//                                        res[a] = res[a + 1];
-//                                    }
-//                                }
-//                                k ++;
-//                            }
-//
-//
-//                            int j = 0;
-//                            for (int i=ssidStart;i<=ssidEnd;i+=2) {
-//                                ssid[j] = (byte)(res[i] * 16 + res[i+1]);
-//                                Log.w(TAG, "SSID: " + (char)ssid[j]);
-//                                j++;
-//                            }
-//
-//                            j = 0;
-//                            for (int i=pwdStart;i<=pwdEnd;i+=2) {
-//                                pwd[j] = (byte)(res[i] * 16 + res[i+1]);
-//                                Log.w(TAG, "PWD: " + (char)pwd[j]);
-//                                j++;
-//                            }
-//
-//                            String strSSID = new String(ssid);
-//                            String strPWD  = new String(pwd);
-//
-//                            publishProgress(strSSID, strPWD);
-//
-//                            Log.w(TAG, new String(ssid));
-//                            Log.w(TAG, new String(pwd));
-//                        }
-//
-//                    }
-//                    lastKey = key;
-//                }
             } catch (InterruptedException e){
                 Log.w("WWWWWWWWWW", "recognizer error");
             }
