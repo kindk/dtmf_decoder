@@ -6,7 +6,6 @@ import android.media.MediaRecorder;
 import android.util.Log;
 
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Exchanger;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import static android.os.SystemClock.sleep;
@@ -16,7 +15,9 @@ import static android.os.SystemClock.sleep;
  */
 
 public class Controller {
-    String TAG = "Controller";
+    private static final String TAG = "Controller";
+    private MainActivity mainActivity;
+
     private boolean started = false;
 
     int frequency = 16000;
@@ -25,7 +26,6 @@ public class Controller {
     int blockSize = 1024;
 
 
-    private MainActivity mainActivity;
     private RecordTask recordTask;
     private RecognizerTask recognizerTask;
 
@@ -44,30 +44,6 @@ public class Controller {
             mainActivity.start();
             recognizerTask = new RecognizerTask(this, blockingQueue);
             recognizerTask.execute();
-
-//
-//            new Thread(new Runnable() {
-//                @Override
-//                public void run() {
-//
-//                    while (isStarted()) {
-//                        try {
-//                            DataBlock dataBlock = blockingQueue.take();
-//                            Spectrum spectrum = dataBlock.FFT();
-//                            spectrum.normalize();
-//                            StatelessRecognizer statelessRecognizer = new StatelessRecognizer(spectrum);
-//                            char key = statelessRecognizer.getRecognizedKey();
-//
-//                            if (key != ' ') {
-//                                Log.w(TAG, "" + key);
-//                                //sleep(130);
-//                            }
-//                        } catch (Exception e) {
-//
-//                        }
-//                    }
-//                }
-//            }).start();
 
             new Thread(new Runnable() {
                 @Override
@@ -91,14 +67,13 @@ public class Controller {
                             dataBlock.seq = seq;
                             blockingQueue.put(dataBlock);
                             seq ++;
-                            sleep(20);
+                            sleep(5);
                         }
                     } catch (Throwable t) {
                         Log.e("AudioRecord", "Recording Failed");
                     }
                 }
             }).start();
-
         } else {
             Log.w(TAG, "stop");
             mainActivity.stop();

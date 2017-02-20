@@ -9,10 +9,11 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.TextView;
 
 public class MainActivity extends AppCompatActivity {
+    private static final String TAG = "MainActivity";
+
     private Button stateButton;
     private Button clearButton;
     private TextView ssidTextView;
@@ -20,31 +21,27 @@ public class MainActivity extends AppCompatActivity {
 
     Controller controller;
 
-    private String TAG = "MainActivity";
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        controller = new Controller(this);
-
         if (ContextCompat.checkSelfPermission(this,
                 Manifest.permission.RECORD_AUDIO)
                 != PackageManager.PERMISSION_GRANTED) {
-            Log.w(TAG, "no permission of recorder ");
+            Log.w(TAG, "No permission for recorder!");
 
             ActivityCompat.requestPermissions(this,
                     new String[]{Manifest.permission.RECORD_AUDIO},
                     1);
         }
 
-
-
         stateButton = (Button) findViewById(R.id.stateButton);
         clearButton = (Button) findViewById(R.id.clearButton);
         ssidTextView = (TextView) findViewById(R.id.ssidTextView);
         pwdTextView = (TextView) findViewById(R.id.pwdTextView);
+
+        controller = new Controller(this);
 
         stateButton.setOnClickListener(new View.OnClickListener() {
             @Override
